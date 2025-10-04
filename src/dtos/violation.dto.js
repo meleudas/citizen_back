@@ -8,7 +8,9 @@ class ViolationDTO {
     this.category = violation.category;
     this.photoUrl = violation.photoUrl;
     this.dateTime = violation.dateTime;
-    this.location = violation.location;
+    this.location = violation.location; // Це поле має бути тут
+    this.latitude = violation.latitude; // Додамо для сумісності
+    this.longitude = violation.longitude; // Додамо для сумісності
     this.isSynced = violation.isSynced;
     this.createdAt = violation.createdAt;
     this.updatedAt = violation.updatedAt;
@@ -43,6 +45,8 @@ class ViolationDTO {
       photoUrl: this.photoUrl,
       dateTime: this.dateTime,
       location: this.location,
+      latitude: this.latitude,
+      longitude: this.longitude,
       isSynced: this.isSynced,
       formattedDate: this.formattedDate,
       locationString: this.locationString
@@ -59,6 +63,8 @@ class ViolationDTO {
       photoUrl: this.photoUrl,
       dateTime: this.dateTime,
       location: this.location,
+      latitude: this.latitude,
+      longitude: this.longitude,
       isSynced: this.isSynced,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
@@ -67,7 +73,7 @@ class ViolationDTO {
     };
   }
 
-  // Для списку (оптимізоване відображення)
+  // Для списку (оптимізоване відображення) - ВИПРАВЛЕНО
   toListJSON() {
     return {
       id: this.id,
@@ -75,18 +81,20 @@ class ViolationDTO {
       category: this.category,
       photoUrl: this.photoUrl,
       dateTime: this.dateTime,
+      location: this.location, // Додано location
+      latitude: this.latitude, // Додано latitude
+      longitude: this.longitude, // Додано longitude
       isSynced: this.isSynced,
       formattedDate: this.formattedDate
     };
   }
 }
-
-// DTO для створення правопорушення
+// DTO для створення правопорушення - ВИПРАВЛЕНО
 class CreateViolationDTO {
   constructor(data) {
     this.description = data.description;
     this.category = data.category;
-    this.photoBase64 = data.photoBase64;
+    this.photoUrl = data.photoUrl; // Замість photoBase64
     this.dateTime = data.dateTime;
     this.location = data.location;
   }
@@ -99,11 +107,11 @@ class CreateViolationDTO {
       errors.push('Опис є обов\'язковим');
     } else if (this.description.length < 10) {
       errors.push('Опис має містити принаймні 10 символів');
-    } else if (this.description.length > 1000) {
+    } else if (this.description.length > 1000) { // Виправлено максимальну довжину
       errors.push('Опис не може перевищувати 1000 символів');
     }
 
-    const validCategories = ['traffic', 'environment', 'public_safety', 'infrastructure', 'other'];
+    const validCategories = ['traffic', 'parking', 'trash', 'environment', 'public_safety', 'infrastructure', 'vandalism', 'noise', 'other'];
     if (!this.category) {
       errors.push('Категорія є обов\'язковою');
     } else if (!validCategories.includes(this.category)) {
@@ -148,17 +156,18 @@ class CreateViolationDTO {
       }
     }
 
-    // Валідація фото (якщо надано)
-    if (this.photoBase64) {
-      if (!this.photoBase64.startsWith('data:image/')) {
-        errors.push('Невірний формат зображення');
+    // Валідація URL фото (якщо надано)
+    if (this.photoUrl) {
+      if (typeof this.photoUrl !== 'string') {
+        errors.push('URL фото має бути рядком');
       } else {
-        const base64Data = this.photoBase64.split(',')[1];
-        if (base64Data) {
-          const imageSize = (base64Data.length * 3) / 4;
-          if (imageSize > 10 * 1024 * 1024) { // 10MB
-            errors.push('Розмір зображення не може перевищувати 10MB');
-          }
+        // Очищення пробілів
+        this.photoUrl = this.photoUrl.trim();
+        
+        try {
+          new URL(this.photoUrl);
+        } catch (error) {
+          errors.push('Невірний формат URL фото');
         }
       }
     }
@@ -168,10 +177,9 @@ class CreateViolationDTO {
 
   // Очищення даних
   sanitize() {
-    return {
+    const sanitized = {
       description: this.description?.trim(),
       category: this.category,
-      photoBase64: this.photoBase64,
       dateTime: new Date(this.dateTime),
       location: {
         type: 'Point',
@@ -181,16 +189,23 @@ class CreateViolationDTO {
         ]
       }
     };
+
+    // Додаємо photoUrl, якщо він є
+    if (this.photoUrl) {
+      sanitized.photoUrl = this.photoUrl.trim();
+    }
+
+    return sanitized;
   }
 }
 
-// DTO для синхронізації офлайн даних
+// DTO для синхронізації офлайн даних - ВИПРАВЛЕНО
 class SyncViolationDTO {
   constructor(data) {
     this.id = data.id;
     this.description = data.description;
     this.category = data.category;
-    this.photoBase64 = data.photoBase64;
+    this.photoUrl = data.photoUrl; // Замість photoBase64
     this.dateTime = data.dateTime;
     this.location = data.location;
     this.isSynced = data.isSynced !== undefined ? data.isSynced : false;
@@ -207,7 +222,7 @@ class SyncViolationDTO {
     const createDTO = new CreateViolationDTO({
       description: this.description,
       category: this.category,
-      photoBase64: this.photoBase64,
+      photoUrl: this.photoUrl, // Замість photoBase64
       dateTime: this.dateTime,
       location: this.location
     });
@@ -236,7 +251,7 @@ class SyncViolationDTO {
     const createDTO = new CreateViolationDTO({
       description: this.description,
       category: this.category,
-      photoBase64: this.photoBase64,
+      photoUrl: this.photoUrl, // Замість photoBase64
       dateTime: this.dateTime,
       location: this.location
     });

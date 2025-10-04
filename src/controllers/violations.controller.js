@@ -17,12 +17,41 @@ class ViolationsController {
   // Створення правопорушення
   async create(req, res, next) {
     try {
+      // ЛОГУВАННЯ ВХІДНИХ ДАНИХ ДЛЯ НАЛАГОДЖЕННЯ
+      logger.warn(`=== ВХІДНІ ДАНІ СТВОРЕННЯ ПРАВОПОРУШЕННЯ ===`);
+      logger.warn(`User ID: ${req.user.id}`);
+      logger.warn(`Content-Type: ${req.get('Content-Type')}`);
+      logger.warn(`Body: ${JSON.stringify(req.body, null, 2)}`);
+      logger.warn(`Files: ${JSON.stringify(req.files, null, 2)}`);
+      logger.warn(`Raw Body Keys: ${Object.keys(req.body)}`);
+      
+      // Якщо є location - логуємо його тип та вміст
+      if (req.body.location) {
+        logger.warn(`Location type: ${typeof req.body.location}`);
+        logger.warn(`Location value: ${req.body.location}`);
+        try { 
+          const parsedLocation = typeof req.body.location === 'string' ? JSON.parse(req.body.location) : req.body.location;
+          logger.warn(`Parsed Location: ${JSON.stringify(parsedLocation, null, 2)}`);
+        } catch (parseError) {
+          logger.warn(`Location parse error: ${parseError.message}`);
+        }
+      }
+      logger.warn(`========================================`);
+
       // Валідація даних
       await Promise.all(createViolationValidation.map(validation => validation.run(req)));
       validate(req, res, () => {});
 
       const userId = req.user.id;
       const violationData = req.body;
+
+      // ЛОГУВАННЯ ПІСЛЯ ВАЛІДАЦІЇ
+      logger.warn(`=== ПІСЛЯ ВАЛІДАЦІЇ ===`);
+      logger.warn(`Violation Data: ${JSON.stringify(violationData, null, 2)}`);
+      if (violationData.location) {
+        logger.warn(`Location after validation: ${JSON.stringify(violationData.location, null, 2)}`);
+      }
+      logger.warn(`========================`);
 
       // Виклик сервісу створення
       const violation = await ViolationsService.create(violationData, userId);
@@ -39,6 +68,7 @@ class ViolationsController {
 
     } catch (error) {
       logger.error(`Помилка створення правопорушення: ${error.message}`);
+      logger.error(`Stack trace: ${error.stack}`);
       next(error);
     }
   }
@@ -99,6 +129,11 @@ class ViolationsController {
   // Отримання правопорушень за локацією
   async getByLocation(req, res, next) {
     try {
+      // ЛОГУВАННЯ ВХІДНИХ ДАНИХ
+      logger.warn(`=== ВХІДНІ ДАНІ ЛОКАЦІЇ ===`);
+      logger.warn(`Body: ${JSON.stringify(req.body, null, 2)}`);
+      logger.warn(`==========================`);
+
       // Валідація даних
       await Promise.all(locationValidation.map(validation => validation.run(req)));
       validate(req, res, () => {});
@@ -148,13 +183,25 @@ class ViolationsController {
   }
 
   // Отримання правопорушень з пагінацією
+
   async getViolations(req, res, next) {
     try {
+      logger.info('=== ВХІДНІ ДАНІ ДЛЯ ВАЛІДАЦІЇ ===', {
+        method: req.method,
+        url: req.url,
+        hasUser: !!req.user,
+        userId: req.user?.id,
+        query: req.query,
+        headers: {
+          'content-length': req.headers['content-length'],
+          'content-type': req.headers['content-type']
+        }
+      });
+
       // Валідація параметрів пагінації
       await Promise.all(paginationValidation.map(validation => validation.run(req)));
       validate(req, res, () => {});
 
-      const userId = req.user.id;
       const { limit, offset, sort } = req.query;
 
       const options = {};
@@ -166,25 +213,51 @@ class ViolationsController {
         options.sort = { [sortField]: sortOrder };
       }
 
-      // Виклик сервісу отримання
-      const result = await ViolationsService.getViolations(userId, options);
+      logger.debug('Параметри запиту:', { options, hasUser: !!req.user });
 
-      // Відповідь
+      let result;
+      
+      // Якщо користувач авторизований - отримуємо його правопорушення
+      // Якщо ні - отримуємо всі правопорушення
+      if (req.user) {
+        const userId = req.user.id;
+        logger.debug(`Виклик getViolations для користувача ${userId}`);
+        result = await ViolationsService.getViolations(userId, options);
+      } else {
+        logger.debug('Виклик getAllViolations для всіх користувачів');
+        result = await ViolationsService.getAllViolations(options);
+      }
+
+      logger.debug('Отримано результат:', { 
+        hasResult: !!result,
+        hasViolations: result && Array.isArray(result.violations),
+        violationsCount: result && Array.isArray(result.violations) ? result.violations.length : 0
+      });
+
+      // Відповідь - ВИПРАВЛЕНО: правильно використовуємо result
       res.status(200).json({
         success: true,
-        data: result.violations,
+        data: result.violations,  // ВИПРАВЛЕНО: було "violations" замість "result.violations"
         pagination: result.pagination
       });
 
     } catch (error) {
-      logger.error(`Помилка отримання правопорушень: ${error.message}`);
+      logger.error(`Помилка отримання правопорушень: ${error.message}`, {
+        error: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       next(error);
     }
   }
-
   // Синхронізація локального правопорушення
   async syncViolation(req, res, next) {
     try {
+      // ЛОГУВАННЯ ВХІДНИХ ДАНИХ
+      logger.warn(`=== ВХІДНІ ДАНІ СИНХРОНІЗАЦІЇ ===`);
+      logger.warn(`Body: ${JSON.stringify(req.body, null, 2)}`);
+      logger.warn(`================================`);
+
       // Валідація даних
       await Promise.all(syncViolationValidation.map(validation => validation.run(req)));
       validate(req, res, () => {});
@@ -257,6 +330,11 @@ class ViolationsController {
   // Отримання правопорушень за діапазоном дат
   async getByDateRange(req, res, next) {
     try {
+      // ЛОГУВАННЯ ВХІДНИХ ДАНИХ
+      logger.warn(`=== ВХІДНІ ДАНІ ДІАПАЗОНУ ДАТ ===`);
+      logger.warn(`Query: ${JSON.stringify(req.query, null, 2)}`);
+      logger.warn(`================================`);
+
       // Валідація параметрів
       await Promise.all(dateRangeValidation.map(validation => validation.run(req)));
       validate(req, res, () => {});
@@ -298,22 +376,14 @@ class ViolationsController {
       await Promise.all(violationIdValidation.map(validation => validation.run(req)));
       validate(req, res, () => {});
 
-      const userId = req.user.id;
       const { id: violationId } = req.params;
+      
+      // Отримуємо userId з req.user якщо користувач авторизований, інакше null
+      const userId = req.user ? req.user.id : null;
 
-      // Отримання правопорушення через репозиторій
-      const violation = await require('../repositories/violation.repository').findByIdAndUser(violationId, userId);
-
-      if (!violation) {
-        throw new AppError('Правопорушення не знайдено', 404);
-      }
-
-      // Форматування для відповіді
-      const formattedViolation = {
-        ...violation,
-        daysAgo: Math.ceil((Date.now() - new Date(violation.dateTime)) / (1000 * 60 * 60 * 24)),
-        thumbnailUrl: violation.photoUrl ? require('../services/cloudinary.service').generateThumbnail(violation.photoUrl) : null
-      };
+      // Виклик сервісу
+      const violationService = require('../services/violations.service');
+      const formattedViolation = await violationService.getById(violationId, userId);
 
       // Відповідь
       res.status(200).json({

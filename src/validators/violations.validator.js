@@ -62,7 +62,7 @@ const createViolationValidation = [
     .escape()
     .notEmpty()
     .withMessage(errorMessages.required('Опис'))
-    .isLength({ min: 10, max: 1000 })
+    .isLength({ min: 10, max: 500 })
     .withMessage(errorMessages.minLength('Опис', 10)),
 
   // Валідація категорії
@@ -70,8 +70,8 @@ const createViolationValidation = [
     .trim()
     .notEmpty()
     .withMessage(errorMessages.required('Категорія'))
-    .isIn(['traffic', 'environment', 'public_safety', 'infrastructure', 'other'])
-    .withMessage(errorMessages.enum('Категорія', ['traffic', 'environment', 'public_safety', 'infrastructure', 'other'])),
+    .isIn(['traffic', 'parking' ,'trash', 'environment', 'public_safety', 'infrastructure', 'vandalism', 'noise',  'other'])
+    .withMessage(errorMessages.enum('Категорія', ['traffic', 'parking' ,'trash', 'environment', 'public_safety', 'infrastructure', 'vandalism', 'noise',  'other'])),
 
   // Валідація фото (опціонально)
   body('photoBase64')

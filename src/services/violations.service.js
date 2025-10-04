@@ -1,4 +1,4 @@
-// services/violations.service.js (повністю оновлена версія)
+// services/violations.service.js (оновлена версія)
 
 const ViolationRepository = require('../repositories/violation.repository');
 const CloudinaryService = require('./cloudinary.service');
@@ -68,7 +68,7 @@ class ViolationsService {
     }
   }
 
-  // Створення правопорушення
+  // Створення правопорушення - ВИПРАВЛЕНО
   async create(violationData, userId) {
     try {
       // Створення та валідація DTO
@@ -76,7 +76,7 @@ class ViolationsService {
       const validationErrors = createDTO.validate();
       
       if (validationErrors.length > 0) {
-        throw new ValidationError(`Помилка валідації: ${validationErrors.join(', ')}`, validationErrors);
+        throw new ValidationError(`Помилка валідації ало: ${validationErrors.join(', ')}`, validationErrors);
       }
 
       const sanitizedData = createDTO.sanitize();
@@ -84,20 +84,12 @@ class ViolationsService {
       let photoUrl = null;
       let cloudinaryPublicId = null;
 
-      // Обробка фото, якщо воно є
-      if (sanitizedData.photoBase64) {
-        try {
-          const uploadResult = await CloudinaryService.upload(sanitizedData.photoBase64, { userId });
-          photoUrl = uploadResult.secure_url;
-          cloudinaryPublicId = uploadResult.public_id;
-        } catch (error) {
-          logger.error(`Помилка завантаження фото: ${error.message}`, { 
-            userId, 
-            error: error.message,
-            stack: error.stack 
-          });
-          throw new UploadError('Помилка завантаження фото');
-        }
+      // Обробка фото, якщо воно є (вже URL, не Base64)
+      if (sanitizedData.photoUrl) {
+        // Якщо приходить готовий URL, використовуємо його
+        photoUrl = sanitizedData.photoUrl;
+        // Якщо потрібно отримати public_id з Cloudinary, можна зробити додатковий запит
+        // Але для заощадження часу просто використовуємо URL як є
       }
 
       // Підготовка даних для створення
@@ -107,8 +99,8 @@ class ViolationsService {
         category: sanitizedData.category,
         dateTime: sanitizedData.dateTime,
         location: sanitizedData.location,
-        photoUrl,
-        cloudinaryPublicId,
+        photoUrl, // Використовуємо готовий URL
+        cloudinaryPublicId, // Залишаємо null, бо ми не володіємо фото
         isSynced: true // Нові правопорушення вважаються синхронізованими
       };
 
@@ -295,7 +287,7 @@ class ViolationsService {
     }
   }
 
-  // Синхронізація локального правопорушення
+  // Синхронізація локального правопорушення - ВИПРАВЛЕНО
   async syncLocalViolation(violationData, userId) {
     try {
       // Створення та валідація DTO
@@ -303,7 +295,7 @@ class ViolationsService {
       const validationErrors = syncDTO.validate();
       
       if (validationErrors.length > 0) {
-        throw new ValidationError(`Помилка валідації: ${validationErrors.join(', ')}`, validationErrors);
+        throw new ValidationError(`Помилка валідації да: ${validationErrors.join(', ')}`, validationErrors);
       }
 
       const sanitizedData = syncDTO.sanitize();
@@ -311,20 +303,11 @@ class ViolationsService {
       let photoUrl = null;
       let cloudinaryPublicId = null;
 
-      // Обробка фото, якщо воно є
-      if (sanitizedData.photoBase64) {
-        try {
-          const uploadResult = await CloudinaryService.upload(sanitizedData.photoBase64, { userId });
-          photoUrl = uploadResult.secure_url;
-          cloudinaryPublicId = uploadResult.public_id;
-        } catch (error) {
-          logger.error(`Помилка завантаження фото при синхронізації: ${error.message}`, { 
-            userId, 
-            error: error.message,
-            stack: error.stack 
-          });
-          throw new UploadError('Помилка завантаження фото при синхронізації');
-        }
+      // Обробка фото, якщо воно є (вже URL, не Base64)
+      if (sanitizedData.photoUrl) {
+        // Якщо приходить готовий URL, використовуємо його
+        photoUrl = sanitizedData.photoUrl;
+        // Якщо потрібно отримати public_id з Cloudinary, можна зробити додатковий запит
       }
 
       // Підготовка даних для створення
@@ -334,8 +317,8 @@ class ViolationsService {
         category: sanitizedData.category,
         dateTime: sanitizedData.dateTime,
         location: sanitizedData.location,
-        photoUrl,
-        cloudinaryPublicId,
+        photoUrl, // Використовуємо готовий URL
+        cloudinaryPublicId, // Залишаємо null
         isSynced: true, // Позначаємо як синхронізоване
         ...(sanitizedData.createdAt && { createdAt: sanitizedData.createdAt }),
         ...(sanitizedData.updatedAt && { updatedAt: sanitizedData.updatedAt })
@@ -476,7 +459,7 @@ class ViolationsService {
     }
   }
 
-  // Отримання правопорушень з пагінацією
+  // Отримання правопорушень з пагінацією (для авторизованих користувачів)
   async getViolations(userId, options = {}) {
     try {
       const result = await ViolationRepository.findByUserId(userId, options);
@@ -516,6 +499,98 @@ class ViolationsService {
     }
   }
 
+
+  // Отримання всіх правопорушень з пагінацією (для всіх користувачів)
+  async getAllViolations(options = {}) {
+    try {
+      logger.debug('Виклик getAllViolations з опціями:', { options });
+      
+      // Спробуємо отримати всі правопорушення
+      const result = await ViolationRepository.findAll(options);
+      
+      logger.debug('Отримано результат від репозиторію:', { 
+        hasResult: !!result,
+        hasViolations: result && Array.isArray(result.violations),
+        violationsCount: result && Array.isArray(result.violations) ? result.violations.length : 0,
+        hasPagination: result && result.pagination
+      });
+      
+      // Перевірка структури результату
+      if (!result) {
+        throw new Error('Репозиторій повернув порожній результат');
+      }
+      
+      if (!Array.isArray(result.violations)) {
+        logger.error('Неправильна структура результату від репозиторію:', { result });
+        throw new Error('Репозиторій повернув неправильну структуру даних');
+      }
+      
+      // Використання DTO для форматування
+      logger.debug(`Конвертація ${result.violations.length} правопорушень в DTO`);
+      const violationDTOs = ViolationDTO.fromModels(result.violations);
+      
+      logger.debug(`Конвертовано ${violationDTOs.length} DTO об'єктів`);
+
+      // Форматування для клієнта
+      const formattedViolations = violationDTOs.map((dto, index) => {
+        try {
+          const violationObj = dto.toListJSON();
+          logger.debug(`Форматування DTO #${index}:`, { 
+            hasObj: !!violationObj,
+            hasLocation: !!violationObj?.location,
+            locationType: typeof violationObj?.location,
+            hasCoords: !!(violationObj?.latitude && violationObj?.longitude)
+          });
+          
+          // Логування конкретної локації для налагодження
+          if (violationObj?.location) {
+            logger.debug(`Location data for violation #${index}:`, violationObj.location);
+          }
+          
+          return {
+            ...violationObj,
+            daysAgo: violationObj.dateTime ? this.calculateDaysAgo(violationObj.dateTime) : null,
+            thumbnailUrl: violationObj.photoUrl ? CloudinaryService.generateThumbnail(violationObj.photoUrl) : null
+          };
+        } catch (formatError) {
+          logger.error(`Помилка форматування DTO #${index}:`, { 
+            error: formatError.message,
+            dto: dto
+          });
+          throw formatError;
+        }
+      });
+
+      logger.info(`Отримано ${formattedViolations.length} всіх правопорушень`, { 
+        count: formattedViolations.length,
+        pagination: result.pagination
+      });
+      
+      return {
+        violations: formattedViolations,
+        pagination: result.pagination
+      };
+
+    } catch (error) {
+      logger.error(`Помилка отримання всіх правопорушень: ${error.message}`, { 
+        options, 
+        error: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      
+      // Додаткове логування для специфічних типів помилок
+      if (error instanceof AppError) {
+        logger.error('AppError деталі:', { 
+          message: error.message,
+          statusCode: error.statusCode,
+          isOperational: error.isOperational
+        });
+      }
+      
+      throw new AppError('Не вдалося отримати правопорушення', 500);
+    }
+  }
   // Отримання несинхронізованих правопорушень
   async getUnsyncedViolations(userId) {
     try {
@@ -566,37 +641,46 @@ class ViolationsService {
 
   // Отримання конкретного правопорушення
   async getById(violationId, userId) {
-    try {
-      const violation = await ViolationRepository.findByIdAndUser(violationId, userId);
-      
-      if (!violation) {
-        throw new NotFoundError('Правопорушення не знайдено');
+      try {
+        // Якщо користувач авторизований - шукаємо з перевіркою прав, інакше - просто по ID
+        let violation;
+        
+        if (userId) {
+          // Користувач авторизований - перевіряємо чи має він доступ до цього правопорушення
+          violation = await ViolationRepository.findByIdAndUser(violationId, userId);
+        } else {
+          // Користувач не авторизований - просто отримуємо правопорушення по ID
+          violation = await ViolationRepository.findById(violationId);
+        }
+        
+        if (!violation) {
+          throw new NotFoundError('Правопорушення не знайдено');
+        }
+
+        // Використання DTO для форматування
+        const violationDTO = ViolationDTO.fromModel(violation);
+
+        const violationObj = violationDTO.toJSON();
+        const formattedViolation = {
+          ...violationObj,
+          daysAgo: this.calculateDaysAgo(violationObj.dateTime),
+          thumbnailUrl: violationObj.photoUrl ? CloudinaryService.generateThumbnail(violationObj.photoUrl) : null
+        };
+
+        return formattedViolation;
+
+      } catch (error) {
+        if (error instanceof AppError) {
+          throw error;
+        }
+        logger.error(`Помилка отримання правопорушення: ${error.message}`, { 
+          violationId, 
+          userId, 
+          error: error.message,
+          stack: error.stack 
+        });
+        throw new AppError('Не вдалося отримати правопорушення', 500);
       }
-
-      // Використання DTO для форматування
-      const violationDTO = ViolationDTO.fromModel(violation);
-
-      const violationObj = violationDTO.toJSON();
-      const formattedViolation = {
-        ...violationObj,
-        daysAgo: this.calculateDaysAgo(violationObj.dateTime),
-        thumbnailUrl: violationObj.photoUrl ? CloudinaryService.generateThumbnail(violationObj.photoUrl) : null
-      };
-
-      return formattedViolation;
-
-    } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      logger.error(`Помилка отримання правопорушення: ${error.message}`, { 
-        violationId, 
-        userId, 
-        error: error.message,
-        stack: error.stack 
-      });
-      throw new AppError('Не вдалося отримати правопорушення', 500);
-    }
   }
 
   // Отримання правопорушень за діапазоном дат

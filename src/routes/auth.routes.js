@@ -1,3 +1,4 @@
+// Backend - доданий маршрут для оновлення профілю у auth.routes.js
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const AuthController = require('../controllers/auth.controller');
@@ -108,6 +109,17 @@ router.get(
   '/me',
   authenticate,
   (req, res, next) => AuthController.getCurrentUser(req, res, next)
+);
+
+/**
+ * @route   PUT /api/auth/profile
+ * @desc    Оновлення профілю користувача
+ * @access  Private
+ */
+router.put(
+  '/profile',
+  authenticate,
+  (req, res, next) => AuthController.updateProfile(req, res, next)
 );
 
 /**

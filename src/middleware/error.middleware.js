@@ -118,7 +118,7 @@ const handleJoiValidationErrors = (err) => {
       message: detail.message
     }));
     
-    return new ValidationError('Помилка валідації', details);
+    return new ValidationError('Помилка валідації хуй', details);
   }
   return err;
 };

@@ -13,7 +13,7 @@ class TokenService {
     this.refreshSecret = process.env.JWT_REFRESH_SECRET || 'refresh-secret-key';
     this.resetSecret = process.env.JWT_RESET_SECRET || 'reset-secret-key';
     
-    this.accessExpiresIn = process.env.JWT_ACCESS_EXPIRES || '15m';
+    this.accessExpiresIn = process.env.JWT_ACCESS_EXPIRES || '1d';
     this.refreshExpiresIn = process.env.JWT_REFRESH_EXPIRES || '7d';
     this.resetExpiresIn = process.env.JWT_RESET_EXPIRES || '1h';
 

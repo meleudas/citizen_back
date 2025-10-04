@@ -12,14 +12,14 @@ const violationSchema = new mongoose.Schema({
     required: [true, 'Опис порушення є обов\'язковим'],
     trim: true,
     minlength: [10, 'Опис має містити принаймні 10 символів'],
-    maxlength: [1000, 'Опис не може перевищувати 1000 символів']
+    maxlength: [500, 'Опис не може перевищувати 1000 символів']
   },
   category: {
     type: String,
     required: [true, 'Категорія є обов\'язковою'],
     enum: {
-      values: ['traffic', 'environment', 'public_safety', 'infrastructure', 'other'],
-      message: 'Категорія має бути однією з: traffic, environment, public_safety, infrastructure, other'
+      values: ['traffic', 'parking' ,'trash', 'environment', 'public_safety', 'infrastructure', 'vandalism', 'noise',  'other'],
+      message: 'Категорія має бути однією з: traffic, environment, public_safety, parking,  trash, vandalism, infrastructure, noise, other'
     },
     default: 'other'
   },

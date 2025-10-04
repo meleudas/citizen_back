@@ -338,19 +338,50 @@ class ViolationRepository {
     }
   }
 
-  // Отримання правопорушення за ID з перевіркою власника
+async findById(id) {
+    try {
+      if (!id) {
+        throw new ValidationError('ID правопорушення обов\'язковий');
+      }
+
+      const violation = await Violation.findOne({
+        _id: id
+      }).lean();
+
+      return violation;
+
+    } catch (error) {
+      if (error.name === 'CastError') {
+        throw new ValidationError('Невірний формат ID правопорушення');
+      }
+      if (error instanceof AppError) {
+        throw error;
+      }
+      logger.error(`Помилка отримання правопорушення: ${error.message}`, { 
+        violationId: id,
+        error: error.message,
+        stack: error.stack 
+      });
+      throw new DatabaseError('Не вдалося отримати правопорушення');
+    }
+  }
+
   async findByIdAndUser(id, userId) {
     try {
+      if (!id) {
+        throw new ValidationError('ID правопорушення обов\'язковий');
+      }
+      if (!userId) {
+        throw new ValidationError('ID користувача обов\'язковий');
+      }
+
       const violation = await Violation.findOne({
         _id: id,
         userId: userId
       }).lean();
 
-      if (!violation) {
-        throw new NotFoundError('Правопорушення не знайдено');
-      }
-
       return violation;
+
     } catch (error) {
       if (error.name === 'CastError') {
         throw new ValidationError('Невірний формат ID правопорушення');
@@ -367,7 +398,6 @@ class ViolationRepository {
       throw new DatabaseError('Не вдалося отримати правопорушення');
     }
   }
-
   // Підрахунок загальної кількості правопорушень користувача
   async countByUser(userId) {
     try {
@@ -494,6 +524,38 @@ class ViolationRepository {
         stack: error.stack 
       });
       throw new DatabaseError('Не вдалося отримати правопорушення в межах');
+    }
+  }
+
+
+  async findAll(options = {}) {
+    try {
+      const { limit = 20, offset = 0, sort = { dateTime: -1 } } = options;
+      
+      const violations = await Violation.find({})
+        .sort(sort)
+        .skip(parseInt(offset))
+        .limit(parseInt(limit))
+        .lean();
+      
+      const total = await Violation.countDocuments({});
+      
+      return {
+        violations,
+        pagination: {
+          total,
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          pages: Math.ceil(total / limit)
+        }
+      };
+    } catch (error) {
+      logger.error(`Помилка пошуку всіх правопорушень: ${error.message}`, { 
+        options,
+        error: error.message,
+        stack: error.stack 
+      });
+      throw new DatabaseError('Не вдалося отримати правопорушення');
     }
   }
 

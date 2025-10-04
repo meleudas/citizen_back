@@ -444,23 +444,46 @@ async login(req, res, next) {
         throw new AuthenticationError('Користувач не авторизований');
       }
 
-      // Валідація даних
-      const updateProfileValidation = [
-        req.body.firstName !== undefined && require('express-validator').body('firstName')
+      // Валідація даних профілю
+      const { body } = req;
+      const validationChain = require('express-validator');
+      
+      // Валідація імені
+      if (body.firstName !== undefined) {
+        await validationChain
+          .body('firstName')
           .trim()
           .escape()
           .isLength({ min: 1, max: 50 })
-          .withMessage('Ім\'я має містити від 1 до 50 символів'),
-        req.body.lastName !== undefined && require('express-validator').body('lastName')
+          .withMessage('Ім\'я має містити від 1 до 50 символів')
+          .run(req);
+      }
+      
+      // Валідація прізвища
+      if (body.lastName !== undefined) {
+        await validationChain
+          .body('lastName')
           .trim()
           .escape()
           .isLength({ min: 1, max: 50 })
           .withMessage('Прізвище має містити від 1 до 50 символів')
-      ].filter(Boolean);
+          .run(req);
+      }
+      
+      // Валідація email
+      if (body.email !== undefined) {
+        await validationChain
+          .body('email')
+          .normalizeEmail()
+          .isEmail()
+          .withMessage('Некоректний email')
+          .run(req);
+      }
 
-      if (updateProfileValidation.length > 0) {
-        await Promise.all(updateProfileValidation.map(validation => validation.run(req)));
-        validate(req, res, () => {});
+      // Перевірка помилок валідації
+      const errors = require('express-validator').validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new ValidationError('Помилки валідації', errors.array());
       }
 
       // Виклик сервісу оновлення профілю

@@ -21,7 +21,7 @@ const logger = require('./config/logger');
 // Routes
 const authRoutes = require('./src/routes/auth.routes');
 const violationsRoutes = require('./src/routes/violations.routes');
-const syncRoutes = require('./src/routes/sync.routes');
+// const syncRoutes = require('./src/routes/sync.routes');
 
 const app = express();
 
@@ -101,7 +101,7 @@ app.get('/api/ping', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/violations', violationsRoutes);
-app.use('/api/sync', syncRoutes);
+// app.use('/api/sync', syncRoutes);
 
 // Documentation route
 app.get('/api/docs', (req, res) => {

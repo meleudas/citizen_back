@@ -8,6 +8,20 @@ const logger = require('../../config/logger');
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   
+  // Додаткове логування отриманих даних для дебагу
+  logger.info('=== ВХІДНІ ДАНІ ДЛЯ ВАЛІДАЦІЇ ===', {
+    url: req.originalUrl,
+    method: req.method,
+    userId: req.user?.id,
+    body: req.body,
+    query: req.query,
+    params: req.params,
+    headers: {
+      'content-type': req.headers['content-type'],
+      'content-length': req.headers['content-length']
+    }
+  });
+  
   if (!errors.isEmpty()) {
     // Форматування помилок
     const formattedErrors = errors.array().map(error => ({
@@ -17,14 +31,15 @@ const handleValidationErrors = (req, res, next) => {
       value: error.value
     }));
     
-    logger.warn('Помилка валідації', { 
+    logger.warn('Помилка валідації уєбан', { 
       url: req.originalUrl,
       method: req.method,
       errors: formattedErrors,
-      userId: req.user?.id
+      userId: req.user?.id,
+      requestBody: req.body // Додаткове логування тіла запиту
     });
     
-    const error = new ValidationError('Помилка валідації', formattedErrors);
+    const error = new ValidationError('Помилка валідації чорт', formattedErrors);
     return res.status(400).json({
       success: false,
       message: error.message,
@@ -39,6 +54,12 @@ const handleValidationErrors = (req, res, next) => {
 const validateRequiredFields = (requiredFields) => {
   return (req, res, next) => {
     const missingFields = [];
+    
+    // Логування для дебагу
+    logger.debug('Валідація обов\'язкових полів', {
+      requiredFields,
+      requestBody: req.body
+    });
     
     for (const field of requiredFields) {
       if (req.body[field] === undefined || req.body[field] === null || req.body[field] === '') {
@@ -55,6 +76,7 @@ const validateRequiredFields = (requiredFields) => {
         url: req.originalUrl,
         method: req.method,
         missingFields,
+        requestBody: req.body,
         userId: req.user?.id
       });
       
@@ -73,8 +95,21 @@ const validateDataTypes = (schema) => {
   return (req, res, next) => {
     const errors = [];
     
+    // Логування для дебагу
+    logger.debug('Валідація типів даних', {
+      schema,
+      requestBody: req.body
+    });
+    
     for (const [field, type] of Object.entries(schema)) {
       const value = req.body[field];
+      
+      // Логування кожного поля для дебагу
+      logger.debug(`Валідація поля ${field}`, {
+        value,
+        type: typeof value,
+        expectedType: type
+      });
       
       if (value !== undefined && value !== null) {
         switch (type) {
@@ -125,6 +160,7 @@ const validateDataTypes = (schema) => {
         url: req.originalUrl,
         method: req.method,
         errors,
+        requestBody: req.body,
         userId: req.user?.id
       });
       
@@ -143,6 +179,14 @@ const validateStringLength = (field, minLength, maxLength) => {
   return (req, res, next) => {
     const value = req.body[field];
     
+    // Логування для дебагу
+    logger.debug(`Валідація довжини рядка для поля ${field}`, {
+      value,
+      length: value ? value.length : 0,
+      minLength,
+      maxLength
+    });
+    
     if (value !== undefined && typeof value === 'string') {
       if (minLength !== undefined && value.length < minLength) {
         const error = new ValidationError(`Поле ${field} має містити принаймні ${minLength} символів`);
@@ -151,6 +195,7 @@ const validateStringLength = (field, minLength, maxLength) => {
           field,
           value: value.length,
           minLength,
+          actualValue: value,
           userId: req.user?.id
         });
         
@@ -167,6 +212,7 @@ const validateStringLength = (field, minLength, maxLength) => {
           field,
           value: value.length,
           maxLength,
+          actualValue: value,
           userId: req.user?.id
         });
         
@@ -185,6 +231,12 @@ const validateStringLength = (field, minLength, maxLength) => {
 const validateNumberRange = (field, min, max) => {
   return (req, res, next) => {
     const value = req.body[field];
+    
+    // Логування для дебагу
+    logger.debug(`Валідація числового діапазону для поля ${field}`, {
+      value,
+      type: typeof value
+    });
     
     if (value !== undefined) {
       const numValue = Number(value);
@@ -246,6 +298,12 @@ const validateEnum = (field, allowedValues) => {
   return (req, res, next) => {
     const value = req.body[field];
     
+    // Логування для дебагу
+    logger.debug(`Валідація enum для поля ${field}`, {
+      value,
+      allowedValues
+    });
+    
     if (value !== undefined && !allowedValues.includes(value)) {
       const error = new ValidationError(`Поле ${field} має бути одним з: ${allowedValues.join(', ')}`);
       
@@ -270,6 +328,11 @@ const validateEnum = (field, allowedValues) => {
 const validateObjectId = (field) => {
   return (req, res, next) => {
     const value = req.body[field] || req.params[field] || req.query[field];
+    
+    // Логування для дебагу
+    logger.debug(`Валідація ObjectId для поля ${field}`, {
+      value
+    });
     
     if (value !== undefined) {
       const objectIdRegex = /^[0-9a-fA-F]{24}$/;
@@ -298,6 +361,11 @@ const validateUrl = (field) => {
   return (req, res, next) => {
     const value = req.body[field];
     
+    // Логування для дебагу
+    logger.debug(`Валідація URL для поля ${field}`, {
+      value
+    });
+    
     if (value !== undefined) {
       try {
         new URL(value);
@@ -325,6 +393,11 @@ const validateUrl = (field) => {
 const validateBase64 = (field) => {
   return (req, res, next) => {
     const value = req.body[field];
+    
+    // Логування для дебагу
+    logger.debug(`Валідація Base64 для поля ${field}`, {
+      value: value ? value.substring(0, 50) + '...' : null // Обмежуємо довжину для логування
+    });
     
     if (value !== undefined) {
       const base64Regex = /^data:image\/[a-zA-Z]+;base64,/;
