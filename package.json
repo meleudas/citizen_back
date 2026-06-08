@@ -41,7 +41,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.1",
     "multer": "^2.0.2",
-    "redis": "^5.8.2",
+    "redis": "^6.0.0",
     "winston": "^3.17.0",
     "xss-clean": "^0.1.4"
   }
