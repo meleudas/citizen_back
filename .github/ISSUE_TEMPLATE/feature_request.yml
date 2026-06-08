@@ -1,0 +1,34 @@
+name: Запит функціоналу
+description: Запропонувати нову можливість
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Яку проблему це вирішує?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Запропоноване рішення
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Альтернативи
+      description: Чи розглядали інші підходи?
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Область змін
+      options:
+        - label: API (нові ендпоінти)
+        - label: Автентифікація
+        - label: Документація
+        - label: DevOps / CI
